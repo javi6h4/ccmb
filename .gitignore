@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+build/
+dist/
+installer_output/
+*.spec
+.claude/
+CC2022PART2R1.pdf

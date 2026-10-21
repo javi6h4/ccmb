@@ -1,0 +1,59 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generar ccmb.db si falta
+        shell: pwsh
+        run: |
+          if (!(Test-Path ccmb.db)) {
+            if (!(Test-Path CC2022PART2R1.pdf)) {
+              Write-Error "Falta ccmb.db y tambien CC2022PART2R1.pdf: no se puede generar la base."
+              exit 1
+            }
+            python build_db.py CC2022PART2R1.pdf ccmb.db
+          } else {
+            Write-Host "ccmb.db ya esta en el repo, se omite build_db.py"
+          }
+
+      - name: Empaquetar con PyInstaller
+        shell: cmd
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name CCMB --icon assets\icon.ico --add-data "ccmb.db;." --add-data "assets;assets" main.py
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Compilar instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Subir CCMB.exe (portable) y CCMB_Setup.exe (instalador)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CCMB-windows
+          path: |
+            dist\CCMB.exe
+            installer_output\CCMB_Setup.exe
+          retention-days: 30
