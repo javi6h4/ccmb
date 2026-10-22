@@ -8,3 +8,4 @@ installer_output/
 *.spec
 .claude/
 CC2022PART2R1.pdf
+translation_batches/

@@ -30,7 +30,7 @@ class Database:
 
     def get_classes(self):
         return self.con.execute(
-            "SELECT code, name, page_pdf, annex_letter FROM classes ORDER BY ord"
+            "SELECT code, name, name_es, page_pdf, annex_letter FROM classes ORDER BY ord"
         ).fetchall()
 
     def get_class(self, code):
@@ -41,7 +41,7 @@ class Database:
         if cls is None:
             return None
         families = self.con.execute(
-            "SELECT code, name, page_pdf FROM families WHERE class_code=? ORDER BY ord", (code,)
+            "SELECT code, name, name_es, page_pdf FROM families WHERE class_code=? ORDER BY ord", (code,)
         ).fetchall()
         return {"class": cls, "families": families}
 
@@ -49,7 +49,7 @@ class Database:
 
     def get_families(self, class_code):
         return self.con.execute(
-            "SELECT code, name, page_pdf FROM families WHERE class_code=? ORDER BY ord", (class_code,)
+            "SELECT code, name, name_es, page_pdf FROM families WHERE class_code=? ORDER BY ord", (class_code,)
         ).fetchall()
 
     def get_family(self, code):
@@ -61,7 +61,7 @@ class Database:
             return None
         cls = self.get_class(fam["class_code"])
         components = self.con.execute(
-            "SELECT code, name, page_pdf FROM components WHERE family_code=? ORDER BY ord", (code,)
+            "SELECT code, name, name_es, page_pdf FROM components WHERE family_code=? ORDER BY ord", (code,)
         ).fetchall()
         return {"family": fam, "class": cls, "components": components}
 
@@ -69,7 +69,7 @@ class Database:
 
     def get_components(self, family_code):
         return self.con.execute(
-            "SELECT code, name, page_pdf FROM components WHERE family_code=? ORDER BY ord", (family_code,)
+            "SELECT code, name, name_es, page_pdf FROM components WHERE family_code=? ORDER BY ord", (family_code,)
         ).fetchall()
 
     def get_component(self, code):
@@ -86,7 +86,7 @@ class Database:
         family = self.get_family(comp["family_code"])
         cls = self.get_class(comp["class_code"])
         elements = self.con.execute(
-            "SELECT element_code, text FROM elements WHERE component_code=? ORDER BY ord", (code,)
+            "SELECT element_code, text, text_es FROM elements WHERE component_code=? ORDER BY ord", (code,)
         ).fetchall()
 
         dep_codes = [r[0] for r in self.con.execute(
@@ -115,8 +115,8 @@ class Database:
     def _resolve_ref(self, code):
         comp = self.get_component(code)
         if comp:
-            return {"code": code, "name": comp["name"], "exists": True}
-        return {"code": code, "name": None, "exists": False}
+            return {"code": code, "name": comp["name"], "name_es": comp["name_es"], "exists": True}
+        return {"code": code, "name": None, "name_es": None, "exists": False}
 
     # -- Busqueda -------------------------------------------------------------
 

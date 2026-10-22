@@ -39,6 +39,7 @@ class CCMBWindow(QMainWindow):
         self.history = []
         self.history_index = -1
         self.current_terms = []
+        self.content_lang = "es"
 
         self.settings = QSettings("CCMB", "CCMB")
         self.recent_searches = self._load_recent_searches()
@@ -73,7 +74,7 @@ class CCMBWindow(QMainWindow):
         # debe aplicar apply_glow() encima (pisaria y rompe ese efecto).
         apply_glow(self.detail, color="#000000", blur=40, alpha=130)
         apply_glow(self.sidebar, color="#000000", blur=30, alpha=110)
-        for b in (self.btn_expand, self.btn_collapse, self.btn_back, self.btn_forward):
+        for b in (self.btn_expand, self.btn_collapse, self.btn_back, self.btn_forward, self.btn_lang):
             apply_glow(b, color="#000000", blur=14, alpha=70)
 
     def _build_home_page(self):
@@ -375,11 +376,22 @@ class CCMBWindow(QMainWindow):
         sep.setFixedWidth(1)
         sep.setFixedHeight(22)
 
+        sep2 = QFrame()
+        sep2.setObjectName("toolbarSep")
+        sep2.setFixedWidth(1)
+        sep2.setFixedHeight(22)
+
+        self.btn_lang = QPushButton("VER EN INGLES")
+        self.btn_lang.setCursor(Qt.PointingHandCursor)
+        self.btn_lang.clicked.connect(self._toggle_lang)
+
         hb.addWidget(self.btn_back)
         hb.addWidget(self.btn_forward)
         hb.addWidget(sep)
         hb.addWidget(self.btn_expand)
         hb.addWidget(self.btn_collapse)
+        hb.addWidget(sep2)
+        hb.addWidget(self.btn_lang)
         ma.addWidget(header_bar)
 
         self.detail = QTextBrowser()
@@ -392,34 +404,44 @@ class CCMBWindow(QMainWindow):
         outer.addWidget(main_area, 1)
         return page
 
+    def _tree_label(self, row):
+        name = row["name"]
+        if self.content_lang == "es":
+            name = row["name_es"] or name
+        return f'{row["code"]} - {name}'
+
     def _build_tree(self):
         self.tree.clear()
         self.tree_items = {}
+        self._tree_rows = {}
         classes = self.db.get_classes()
         for i, cls in enumerate(classes):
-            label = f'{cls["code"]} - {cls["name"]}'
+            label = self._tree_label(cls)
             citem = QTreeWidgetItem([label])
             citem.setData(0, Qt.UserRole, ("class", cls["code"]))
             citem.setIcon(0, make_dot_icon(CLASS_PALETTE[i % len(CLASS_PALETTE)]))
             citem.setToolTip(0, label)
             self.tree.addTopLevelItem(citem)
             self.tree_items[("class", cls["code"])] = citem
+            self._tree_rows[("class", cls["code"])] = cls
 
             for fam in self.db.get_families(cls["code"]):
-                flabel = f'{fam["code"]} - {fam["name"]}'
+                flabel = self._tree_label(fam)
                 fitem = QTreeWidgetItem([flabel])
                 fitem.setData(0, Qt.UserRole, ("family", fam["code"]))
                 fitem.setToolTip(0, flabel)
                 citem.addChild(fitem)
                 self.tree_items[("family", fam["code"])] = fitem
+                self._tree_rows[("family", fam["code"])] = fam
 
                 for comp in self.db.get_components(fam["code"]):
-                    clabel = f'{comp["code"]} - {comp["name"]}'
+                    clabel = self._tree_label(comp)
                     item = QTreeWidgetItem([clabel])
                     item.setData(0, Qt.UserRole, ("component", comp["code"]))
                     item.setToolTip(0, clabel)
                     fitem.addChild(item)
                     self.tree_items[("component", comp["code"])] = item
+                    self._tree_rows[("component", comp["code"])] = comp
 
         n_classes = len(classes)
         n_families = len(self._family_rows)
@@ -431,6 +453,25 @@ class CCMBWindow(QMainWindow):
 
     def _show_welcome(self):
         self.detail.setHtml(render.render_welcome(self._stats))
+
+    def _refresh_tree_labels(self):
+        for key, item in self.tree_items.items():
+            row = self._tree_rows.get(key)
+            if row is None:
+                continue
+            label = self._tree_label(row)
+            item.setText(0, label)
+            item.setToolTip(0, label)
+
+    def _toggle_lang(self):
+        self.content_lang = "en" if self.content_lang == "es" else "es"
+        self.btn_lang.setText("VER EN ESPANOL" if self.content_lang == "en" else "VER EN INGLES")
+        self._refresh_tree_labels()
+        if self.history and 0 <= self.history_index < len(self.history):
+            kind, code = self.history[self.history_index]
+            self.navigate_to(kind, code, push_history=False)
+        else:
+            self._show_welcome()
 
     # ------------------------------------------------------------------
     # Busqueda
@@ -634,17 +675,17 @@ class CCMBWindow(QMainWindow):
             data = self.db.get_class_detail(code)
             if data is None:
                 return
-            html = render.render_class(data, self.current_terms)
+            html = render.render_class(data, self.current_terms, lang=self.content_lang)
         elif kind == "family":
             data = self.db.get_family_detail(code)
             if data is None:
                 return
-            html = render.render_family(data, self.current_terms)
+            html = render.render_family(data, self.current_terms, lang=self.content_lang)
         else:
             data = self.db.get_component_detail(code)
             if data is None:
                 return
-            html = render.render_component(data, self.current_terms)
+            html = render.render_component(data, self.current_terms, lang=self.content_lang)
 
         self.detail.setHtml(html)
         self._fade_in(self.detail)
